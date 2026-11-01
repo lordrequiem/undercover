@@ -25,11 +25,16 @@ Building the claims pilot from `docs/PLAN.md`.
   `get_claim`, decides, and records the decision with `submit_decision`. One
   entry point, `run(claim_id, thread_id)`, with an `llm` injection point so
   tests pass a stub model. The default model is `openai/gpt-6-luna`.
+- **Phase 4 — the agent's step-by-step activity.** The backend stores an ordered
+  list of steps per claim (`POST /api/claims/{claim_id}/start` and
+  `POST /api/claims/{claim_id}/steps`), returned on the claim detail. `run`
+  marks the claim `in_progress`, records a step as it picks up the claim, reads
+  the instructions, reads the claim and records the decision, then lands the
+  claim in its final state.
 
 ## In progress
 
-- Phase 4 onward: the agent's activity steps, the dashboard and the end-to-end
-  test.
+- Phase 5 onward: the dashboard and the end-to-end test.
 
 ## How to run
 

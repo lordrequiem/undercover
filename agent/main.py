@@ -36,6 +36,7 @@ def get_claim(claim_id: str) -> str:
     with backend() as client:
         response = client.get(f"/api/claims/{claim_id}")
     response.raise_for_status()
+    add_step(claim_id, "Read the claim", "Read the story, items, documents and policy.")
     return json.dumps(response.json())
 
 
@@ -66,6 +67,21 @@ def instructions() -> str:
     return response.json()["instructions"]
 
 
+def start(claim_id: str) -> None:
+    """Tell the backend the agent has started working the claim."""
+    with backend() as client:
+        client.post(f"/api/claims/{claim_id}/start").raise_for_status()
+
+
+def add_step(claim_id: str, label: str, detail: str) -> None:
+    """Record a step in the agent's work on the claim."""
+    with backend() as client:
+        client.post(
+            f"/api/claims/{claim_id}/steps",
+            json={"label": label, "detail": detail},
+        ).raise_for_status()
+
+
 def system_prompt() -> str:
     """Build the system prompt from the instructions and the policy wording."""
     wording = POLICY_WORDING.read_text(encoding="utf-8")
@@ -85,13 +101,23 @@ def model() -> ChatOpenAI:
 
 def run(claim_id: str, thread_id: str, llm: BaseChatModel | None = None) -> str:
     """Run the agent on one claim and return its final reply."""
+    start(claim_id)
+    add_step(claim_id, "Picked up the claim", f"Opened {claim_id} from the queue.")
+    prompt = system_prompt()
+    add_step(
+        claim_id,
+        "Read the instructions",
+        "Reviewed the agent instructions and the policy wording.",
+    )
     agent = create_agent(
         llm or model(),
         tools=[get_claim, submit_decision],
-        system_prompt=system_prompt(),
+        system_prompt=prompt,
     )
     result = agent.invoke(
         {"messages": [{"role": "user", "content": f"Decide claim {claim_id}."}]},
         config={"configurable": {"thread_id": thread_id}},
     )
-    return result["messages"][-1].text
+    reply = result["messages"][-1].text
+    add_step(claim_id, "Recorded the decision", reply)
+    return reply

@@ -27,6 +27,13 @@ class PayIn(BaseModel):
     amount: float
 
 
+class StepIn(BaseModel):
+    """A step in the agent's work on a claim."""
+
+    label: str
+    detail: str
+
+
 @asynccontextmanager
 async def lifespan(_: FastAPI):
     db.seed()
@@ -153,6 +160,29 @@ def list_claims(conn: Conn) -> list[dict[str, Any]]:
 @app.get("/api/claims/{claim_id}", operation_id="get_claim")
 def get_claim(claim_id: str, conn: Conn) -> dict[str, Any]:
     """Return one claim in full with its decision and activity."""
+    return claim_detail(conn, claim_id)
+
+
+@app.post("/api/claims/{claim_id}/start", operation_id="start_claim")
+def start_claim(claim_id: str, conn: Conn) -> dict[str, Any]:
+    """Mark that the agent has started working the claim."""
+    fetch_claim(conn, claim_id)
+    conn.execute(
+        "UPDATE claims SET state = 'in_progress' WHERE claim_id = ?", (claim_id,)
+    )
+    conn.commit()
+    return claim_detail(conn, claim_id)
+
+
+@app.post("/api/claims/{claim_id}/steps", operation_id="add_step")
+def add_step(claim_id: str, body: StepIn, conn: Conn) -> dict[str, Any]:
+    """Append a step to the agent's activity on the claim."""
+    fetch_claim(conn, claim_id)
+    conn.execute(
+        "INSERT INTO steps (claim_id, label, detail) VALUES (?, ?, ?)",
+        (claim_id, body.label, body.detail),
+    )
+    conn.commit()
     return claim_detail(conn, claim_id)
 
 

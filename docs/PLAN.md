@@ -168,12 +168,12 @@ Show what the agent is doing on a claim while it works.
 
 **Success criteria**
 
-- [ ] `uv run pytest -q` passes, covering: a claim is `in_progress` while the
+- [x] `uv run pytest -q` passes, covering: a claim is `in_progress` while the
       agent works and reaches its final state at the end; steps are recorded in
       order and returned on the claim detail.
-- [ ] By API after a stub run: `GET /api/claims/{id}` shows a non-empty,
+- [x] By API after a stub run: `GET /api/claims/{id}` shows a non-empty,
       ordered `steps` list ending in the decision step.
-- [ ] `npm run check:python` is green.
+- [x] `npm run check:python` is green.
 
 ---
 

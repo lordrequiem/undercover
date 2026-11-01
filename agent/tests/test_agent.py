@@ -16,8 +16,14 @@ class StubModel(GenericFakeChatModel):
 
 
 def decision_call(claim_id, decision, payout):
-    """Script a model that submits a fixed decision, then signs off."""
+    """Script a model that reads the claim, then submits a fixed decision."""
     return [
+        AIMessage(
+            content="",
+            tool_calls=[
+                {"name": "get_claim", "args": {"claim_id": claim_id}, "id": "c"}
+            ],
+        ),
         AIMessage(
             content="",
             tool_calls=[
@@ -30,7 +36,7 @@ def decision_call(claim_id, decision, payout):
                         "reason": "Covered under the policy wording.",
                         "policy_section": "Section 3",
                     },
-                    "id": "1",
+                    "id": "d",
                 }
             ],
         ),
@@ -88,6 +94,41 @@ def test_run_over_limit_waits_for_signoff(monkeypatch):
     detail = TestClient(app).get("/api/claims/CLM-1002").json()
     assert detail["state"] == "waiting_for_signoff"
     assert detail["decision"]["paid"] is None
+
+
+def test_run_records_ordered_steps_ending_in_the_decision(monkeypatch):
+    monkeypatch.setattr(main, "backend", lambda: TestClient(app))
+    main.run(
+        "CLM-1001",
+        "thread-3",
+        StubModel(messages=iter(decision_call("CLM-1001", "approve", 300.0))),
+    )
+    steps = TestClient(app).get("/api/claims/CLM-1001").json()["steps"]
+    assert [step["label"] for step in steps] == [
+        "Picked up the claim",
+        "Read the instructions",
+        "Read the claim",
+        "Recorded the decision",
+    ]
+
+
+def test_run_moves_through_in_progress_to_final(monkeypatch):
+    monkeypatch.setattr(main, "backend", lambda: TestClient(app))
+    seen = {}
+    real = main.instructions
+
+    def spy():
+        seen["state"] = TestClient(app).get("/api/claims/CLM-1001").json()["state"]
+        return real()
+
+    monkeypatch.setattr(main, "instructions", spy)
+    main.run(
+        "CLM-1001",
+        "thread-4",
+        StubModel(messages=iter(decision_call("CLM-1001", "approve", 300.0))),
+    )
+    assert seen["state"] == "in_progress"
+    assert TestClient(app).get("/api/claims/CLM-1001").json()["state"] == "decided"
 
 
 def test_model_name(monkeypatch):
