@@ -1,49 +1,37 @@
 # Status
 
-Building the claims pilot from `docs/PLAN.md`.
+The claims pilot from `docs/PLAN.md` is built: a backend, an agent and a
+dashboard that work the claims queue the way a handler does.
 
-## Done
+## The pilot
 
-- **Phase 1 — seed and read side.** The backend seeds a SQLite database on
-  startup from `data/` (idempotently) and serves the read side:
-  - `GET /api/claims` — the queue, every claim in state `waiting`.
-  - `GET /api/claims/{claim_id}` — one claim in full with its policy, plan,
-    customer history, and (empty for now) decision and steps.
-  - `GET /api/instructions` — the agent's instructions, read only, seeded from
-    `backend/instructions.md`.
-- **Phase 2 — decisions and the payment guardrail.**
-  - `POST /api/claims/{claim_id}/decision` records a decision (approve, decline
-    or refer) and moves the claim to `decided` or, for an over-limit approve, to
-    `waiting_for_signoff`.
-  - `POST /api/claims/{claim_id}/signoff` clears an over-limit approval.
-  - `POST /api/claims/{claim_id}/pay` takes an amount and refuses (409) to pay
-    over the $1,000 limit until the claim is signed off, or to pay a claim that
-    is not approved.
-- **Phase 3 — the agent decides a claim.** The agent reaches the claim and its
-  instructions only through the backend API. Its system prompt is the
-  server-side instructions plus the policy wording; it reads the claim with
-  `get_claim`, decides, and records the decision with `submit_decision`. One
-  entry point, `run(claim_id, thread_id)`, with an `llm` injection point so
-  tests pass a stub model. The default model is `openai/gpt-6-luna`.
-- **Phase 4 — the agent's step-by-step activity.** The backend stores an ordered
-  list of steps per claim (`POST /api/claims/{claim_id}/start` and
-  `POST /api/claims/{claim_id}/steps`), returned on the claim detail. `run`
-  marks the claim `in_progress`, records a step as it picks up the claim, reads
-  the instructions, reads the claim and records the decision, then lands the
-  claim in its final state.
-- **Phase 5 — the dashboard.** A React, Vite and TypeScript app to UnderCover's
-  brand, in light and dark mode, with a small typed API client:
-  - **Queue** (`#/`): every claim with a labeled status, customer, type and
-    amount.
-  - **Claim detail** (`#/claims/{id}`): the claim in full with the decision and
-    the agent's activity when present.
-  - **Instructions** (`#/instructions`): the agent's instructions, read only.
+- **Backend** (`backend/`, FastAPI + SQLite). Seeds a database on startup from
+  `data/` (idempotently) and serves the queue, the claim detail, the agent's
+  instructions (read only) and the agent's activity. It records decisions and
+  owns the one guardrail: no payment over the $1,000 limit until a handler signs
+  off, and only on an approved claim.
+  - `GET /api/claims`, `GET /api/claims/{id}`, `GET /api/instructions`
+  - `POST /api/claims/{id}/start`, `POST /api/claims/{id}/steps`
+  - `POST /api/claims/{id}/decision`, `.../signoff`, `.../pay`
+- **Agent** (`agent/`, LangChain `create_agent` on OpenRouter). Reaches the
+  claim and its instructions only through the backend API. Its prompt is the
+  server-side instructions plus the policy wording; it reads the claim, decides
+  approve, decline or refer, works out the payout, and records the decision with
+  the relevant policy section. One entry point, `run(claim_id, thread_id)`, with
+  an `llm` injection point so tests use a stub model. Default model
+  `openai/gpt-6-luna`, or `MODEL_NAME`.
+- **Dashboard** (`dashboard/`, React + Vite + TS). To UnderCover's brand, light
+  and dark: the queue with each claim's state, the claim in full with the
+  decision and the agent's activity, and the instructions read only. The
+  activity panel refreshes while a claim is in progress.
 
-## In progress
-
-- Phase 6: the live activity view and the end-to-end test.
+The agent works from the policy wording alone. `data/evals/` is the answer key
+and is never read by the backend, the agent or the dashboard.
 
 ## How to run
 
+- `uv sync` and `npm install` install everything.
 - `npm run dev` starts the backend and the dashboard.
+- Run the agent on a claim: `uv run python -c "from agent.main import run;
+  print(run('CLM-1001', 'session-1'))"`, then open the claim in the dashboard.
 - `npm run check` runs every check (Python, TypeScript, Playwright).

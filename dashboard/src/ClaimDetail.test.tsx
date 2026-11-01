@@ -20,6 +20,19 @@ it("shows the story, items, policy and decision", async () => {
   expect(screen.getByText("Picked up the claim")).toBeDefined();
 });
 
+it("marks a claim as working while it is in progress", async () => {
+  const working = {
+    ...claimDetail,
+    state: "in_progress" as const,
+    decision: null,
+    steps: [{ label: "Picked up the claim", detail: "Opened CLM-1001." }],
+  };
+  vi.stubGlobal("fetch", vi.fn().mockResolvedValue(jsonResponse(working)));
+  render(<ClaimDetail claimId="CLM-1001" />);
+  expect(await screen.findByText("Working on the claim.")).toBeDefined();
+  expect(screen.getByText("Picked up the claim")).toBeDefined();
+});
+
 it("omits the decision panel when there is no decision", async () => {
   const pending = {
     ...claimDetail,

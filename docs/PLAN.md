@@ -226,14 +226,14 @@ Show the agent working step by step, and prove the whole pilot together.
 
 **Success criteria**
 
-- [ ] The Playwright e2e test passes: open the queue, open a claim, see its
+- [x] The Playwright e2e test passes: open the queue, open a claim, see its
       steps and the decision, and confirm an over-limit approve shows
       `waiting_for_signoff`.
-- [ ] By hand with the Playwright MCP server: run the agent on a `waiting`
+- [x] By hand with the Playwright MCP server: run the agent on a `waiting`
       claim and watch the detail move through `in_progress` to its final state
       with steps appearing.
-- [ ] `docs/STATUS.md` reflects the pilot.
-- [ ] `npm run check` is fully green (Python, TypeScript and Playwright).
+- [x] `docs/STATUS.md` reflects the pilot.
+- [x] `npm run check` is fully green (Python, TypeScript and Playwright).
 
 ---
 

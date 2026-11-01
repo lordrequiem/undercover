@@ -131,10 +131,12 @@ function DecisionPanel({ decision }: Readonly<{ decision: Decision }>) {
 }
 
 function Activity({ claim }: Readonly<{ claim: Claim }>) {
-  if (claim.steps.length === 0) return null;
+  const working = claim.state === "in_progress";
+  if (claim.steps.length === 0 && !working) return null;
   return (
     <section className="panel">
       <h2>Activity</h2>
+      {working && <p className="muted">Working on the claim.</p>}
       <ul className="steps">
         {claim.steps.map((step, index) => (
           <li key={index}>
@@ -151,7 +153,20 @@ export function ClaimDetail({ claimId }: Readonly<{ claimId: string }>) {
   const [claim, setClaim] = useState<Claim | null>(null);
 
   useEffect(() => {
-    void fetchClaim(claimId).then(setClaim);
+    let active = true;
+    let timer: ReturnType<typeof setTimeout>;
+    const load = async () => {
+      const next = await fetchClaim(claimId);
+      if (!active) return;
+      setClaim(next);
+      if (next.state === "in_progress")
+        timer = setTimeout(() => void load(), 1000);
+    };
+    void load();
+    return () => {
+      active = false;
+      clearTimeout(timer);
+    };
   }, [claimId]);
 
   if (!claim) return <p className="muted">Loading the claim.</p>;
