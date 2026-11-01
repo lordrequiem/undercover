@@ -1,10 +1,23 @@
 # Status
 
-A hello-world skeleton with every check in place:
+Building the claims pilot from `docs/PLAN.md`.
 
-- `backend/`: one route, `GET /api/health`
-- `agent/`: the entry point `run(claim_id, thread_id)`, with one tool that calls the health route
-- `dashboard/`: one page that shows whether the backend is up
-- `e2e/`: one test of that page
+## Done
 
-Nothing of UnderCover is built yet. Update this file as you build.
+- **Phase 1 — seed and read side.** The backend seeds a SQLite database on
+  startup from `data/` (idempotently) and serves the read side:
+  - `GET /api/claims` — the queue, every claim in state `waiting`.
+  - `GET /api/claims/{claim_id}` — one claim in full with its policy, plan,
+    customer history, and (empty for now) decision and steps.
+  - `GET /api/instructions` — the agent's instructions, read only, seeded from
+    `backend/instructions.md`.
+
+## In progress
+
+- Phase 2 onward: decisions and the payment guardrail, the agent, the
+  dashboard and the end-to-end test.
+
+## How to run
+
+- `npm run dev` starts the backend and the dashboard.
+- `npm run check` runs every check (Python, TypeScript, Playwright).

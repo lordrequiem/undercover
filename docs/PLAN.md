@@ -62,21 +62,21 @@ Give the backend its data and the endpoints the dashboard and agent read from.
 
 **Success criteria**
 
-- [ ] `uv run pytest -q backend` passes, with tests covering: the queue lists
+- [x] `uv run pytest -q backend` passes, with tests covering: the queue lists
       all 25 claims each in state `waiting`; a claim detail returns its policy,
       plan and customer history; a missing claim id returns 404; instructions
       are returned as text.
-- [ ] `npm run dev:backend` then
+- [x] `npm run dev:backend` then
       `curl -s http://localhost:8000/api/claims | python -m json.tool` lists 25
       claims, each with a `state` of `waiting`.
-- [ ] `curl -s http://localhost:8000/api/claims/CLM-1001` returns the claim with
+- [x] `curl -s http://localhost:8000/api/claims/CLM-1001` returns the claim with
       its items, the matching policy `POL-2001`, the `premium` plan limits, and
       the customer `Maya Patel` with her previous claim.
-- [ ] `curl -s http://localhost:8000/api/instructions` returns non-empty
+- [x] `curl -s http://localhost:8000/api/instructions` returns non-empty
       instruction text.
-- [ ] Deleting the SQLite file and restarting reseeds cleanly; a second start
+- [x] Deleting the SQLite file and restarting reseeds cleanly; a second start
       without deleting does not duplicate rows.
-- [ ] `npm run check:python` is green.
+- [x] `npm run check:python` is green.
 
 ---
 
