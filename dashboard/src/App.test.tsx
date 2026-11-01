@@ -1,20 +1,31 @@
 import { cleanup, render, screen } from "@testing-library/react";
-import { afterEach, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { App } from "./App";
+import { claimDetail, jsonResponse, queueItem } from "./fixtures";
+
+beforeEach(() => {
+  window.location.hash = "";
+});
 
 afterEach(() => {
   cleanup();
   vi.unstubAllGlobals();
 });
 
-it("shows that the backend is up", async () => {
-  vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response("{}")));
+it("shows the queue by default and the claim detail on its hash", async () => {
+  vi.stubGlobal(
+    "fetch",
+    vi.fn((input: string) =>
+      Promise.resolve(
+        input === "/api/claims"
+          ? jsonResponse([queueItem])
+          : jsonResponse(claimDetail),
+      ),
+    ),
+  );
   render(<App />);
-  expect(await screen.findByText("Backend: up")).toBeDefined();
-});
+  expect(await screen.findByText("Claims queue")).toBeDefined();
 
-it("shows that the backend is down", async () => {
-  vi.stubGlobal("fetch", vi.fn().mockRejectedValue(new Error("offline")));
-  render(<App />);
-  expect(await screen.findByText("Backend: down")).toBeDefined();
+  window.location.hash = "#/claims/CLM-1001";
+  expect(await screen.findByText(claimDetail.story)).toBeDefined();
 });

@@ -31,10 +31,17 @@ Building the claims pilot from `docs/PLAN.md`.
   marks the claim `in_progress`, records a step as it picks up the claim, reads
   the instructions, reads the claim and records the decision, then lands the
   claim in its final state.
+- **Phase 5 — the dashboard.** A React, Vite and TypeScript app to UnderCover's
+  brand, in light and dark mode, with a small typed API client:
+  - **Queue** (`#/`): every claim with a labeled status, customer, type and
+    amount.
+  - **Claim detail** (`#/claims/{id}`): the claim in full with the decision and
+    the agent's activity when present.
+  - **Instructions** (`#/instructions`): the agent's instructions, read only.
 
 ## In progress
 
-- Phase 5 onward: the dashboard and the end-to-end test.
+- Phase 6: the live activity view and the end-to-end test.
 
 ## How to run
 

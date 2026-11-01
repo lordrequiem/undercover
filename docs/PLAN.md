@@ -198,15 +198,15 @@ Give handlers the screens the spec asks for, to UnderCover's brand.
 
 **Success criteria**
 
-- [ ] `vitest run --root dashboard --coverage` passes with component tests
+- [x] `vitest run --root dashboard --coverage` passes with component tests
       (fetch stubbed) for the queue, claim detail and instructions.
-- [ ] `npm run dev`, then with the Playwright MCP server: the queue page lists
+- [x] `npm run dev`, then with the Playwright MCP server: the queue page lists
       claims with their states; opening `CLM-1001` shows its story, items,
       policy and (after a run) the decision; the instructions page shows the
       text with no edit control.
-- [ ] Money reads as `$1,250.00`; the page works in light and dark mode per the
+- [x] Money reads as `$1,250.00`; the page works in light and dark mode per the
       brand.
-- [ ] `npm run check:ts` is green.
+- [x] `npm run check:ts` is green.
 
 ---
 
