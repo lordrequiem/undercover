@@ -19,11 +19,17 @@ Building the claims pilot from `docs/PLAN.md`.
   - `POST /api/claims/{claim_id}/pay` takes an amount and refuses (409) to pay
     over the $1,000 limit until the claim is signed off, or to pay a claim that
     is not approved.
+- **Phase 3 — the agent decides a claim.** The agent reaches the claim and its
+  instructions only through the backend API. Its system prompt is the
+  server-side instructions plus the policy wording; it reads the claim with
+  `get_claim`, decides, and records the decision with `submit_decision`. One
+  entry point, `run(claim_id, thread_id)`, with an `llm` injection point so
+  tests pass a stub model. The default model is `openai/gpt-6-luna`.
 
 ## In progress
 
-- Phase 3 onward: the agent, its activity steps, the dashboard and the
-  end-to-end test.
+- Phase 4 onward: the agent's activity steps, the dashboard and the end-to-end
+  test.
 
 ## How to run
 

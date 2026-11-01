@@ -136,18 +136,18 @@ Turn the hello-world agent into one that decides a claim through the API.
 
 **Success criteria**
 
-- [ ] `uv run pytest -q agent` passes with a stub model that returns a fixed
+- [x] `uv run pytest -q agent` passes with a stub model that returns a fixed
       decision: `run` posts that decision to the backend and the claim's detail
       then shows it (decision, payout, reason, policy section) and the right
       state.
-- [ ] A test confirms the agent's tools call the backend and that the agent is
+- [x] A test confirms the agent's tools call the backend and that the agent is
       given no access to `data/evals/`.
-- [ ] A test with a stub model that approves a payout over the limit leaves the
+- [x] A test with a stub model that approves a payout over the limit leaves the
       claim in `waiting_for_signoff` and does not pay it.
-- [ ] One real run (manual, not in the test suite) on `CLM-1001` with the
+- [x] One real run (manual, not in the test suite) on `CLM-1001` with the
       default model records a sensible approve with a payout and a policy
       section, verified by reading the claim detail over the API.
-- [ ] `npm run check:python` is green.
+- [x] `npm run check:python` is green.
 
 ---
 
