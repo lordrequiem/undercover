@@ -101,17 +101,17 @@ Let the backend record a decision and enforce the one hard rule about payment.
 
 **Success criteria**
 
-- [ ] `uv run pytest -q backend` passes, covering: recording an approve under
+- [x] `uv run pytest -q backend` passes, covering: recording an approve under
       the limit leaves `decided`; an approve over the limit leaves
       `waiting_for_signoff`; decline and refer leave `decided` with payout 0.
-- [ ] A test proves the guardrail: `pay` on an over-limit approved claim returns
+- [x] A test proves the guardrail: `pay` on an over-limit approved claim returns
       409 before sign-off, and succeeds after `signoff`. This holds even when
       the pay amount is sent directly, not just through a decision.
-- [ ] A test proves `pay` returns 409 for a claim that is not approved.
-- [ ] By API: decide `CLM-10xx` as approve with payout 2500 → detail shows
+- [x] A test proves `pay` returns 409 for a claim that is not approved.
+- [x] By API: decide `CLM-10xx` as approve with payout 2500 → detail shows
       `waiting_for_signoff`; `pay` 2500 → 409; `signoff` → 200; `pay` 2500 → 200
       and the claim reads `decided`.
-- [ ] `npm run check:python` is green.
+- [x] `npm run check:python` is green.
 
 ---
 
