@@ -60,13 +60,29 @@ def test_tools_call_the_backend(monkeypatch):
     assert TestClient(app).get("/api/claims/CLM-1001").json()["decision"] is not None
 
 
-def test_prompt_and_tools_do_not_reach_the_evals(monkeypatch):
+def test_prompt_drops_the_wording_and_never_reaches_the_evals(monkeypatch):
     monkeypatch.setattr(main, "backend", lambda: TestClient(app))
-    assert "evals" not in main.system_prompt()
-    assert {t.name for t in [main.get_claim, main.submit_decision]} == {
-        "get_claim",
-        "submit_decision",
-    }
+    prompt = main.system_prompt()
+    assert "evals" not in prompt
+    assert "General exclusions" not in prompt
+
+
+def test_read_handbook_section_records_a_named_step(monkeypatch):
+    monkeypatch.setattr(main, "backend", lambda: TestClient(app))
+    main.start("CLM-1001")
+    text = main.read_handbook_section.invoke(
+        {"claim_id": "CLM-1001", "section_id": "manual/9"}
+    )
+    assert "third claim" in text
+    steps = TestClient(app).get("/api/claims/CLM-1001").json()["steps"]
+    assert steps[-1]["label"] == "Read the manual"
+    assert steps[-1]["detail"].startswith("9.")
+
+
+def test_list_handbook_sections_lists_both_documents(monkeypatch):
+    monkeypatch.setattr(main, "backend", lambda: TestClient(app))
+    sections = json.loads(main.list_handbook_sections.invoke({}))
+    assert {s["document"] for s in sections} == {"wording", "manual"}
 
 
 def test_run_records_the_decision(monkeypatch):
@@ -117,9 +133,9 @@ def test_run_moves_through_in_progress_to_final(monkeypatch):
     seen = {}
     real = main.instructions
 
-    def spy():
+    def spy(kind="claim"):
         seen["state"] = TestClient(app).get("/api/claims/CLM-1001").json()["state"]
-        return real()
+        return real(kind)
 
     monkeypatch.setattr(main, "instructions", spy)
     main.run(

@@ -9,7 +9,7 @@ from typing import Annotated, Any, Literal
 from fastapi import Depends, FastAPI, HTTPException
 from pydantic import BaseModel
 
-from backend import db
+from backend import db, handbook
 
 
 class DecisionIn(BaseModel):
@@ -125,13 +125,34 @@ def health() -> dict[str, str]:
     return {"status": "ok"}
 
 
+def setting(conn: sqlite3.Connection, key: str) -> str:
+    """Return a stored setting's text value."""
+    row = conn.execute("SELECT value FROM settings WHERE key = ?", (key,)).fetchone()
+    return row["value"]
+
+
 @app.get("/api/instructions", operation_id="get_instructions")
 def get_instructions(conn: Conn) -> dict[str, str]:
-    """Return the agent's instructions, read only."""
-    row = conn.execute(
-        "SELECT value FROM settings WHERE key = 'instructions'"
-    ).fetchone()
-    return {"instructions": row["value"]}
+    """Return the agent's instructions for the queue and for a claim, read only."""
+    return {
+        "queue": setting(conn, "queue_instructions"),
+        "claim": setting(conn, "claim_instructions"),
+    }
+
+
+@app.get("/api/handbook", operation_id="list_handbook")
+def list_handbook() -> list[dict[str, str]]:
+    """List every section of the policy wording and the claims manual, in order."""
+    return handbook.index()
+
+
+@app.get("/api/handbook/{section_id:path}", operation_id="read_handbook")
+def read_handbook(section_id: str) -> dict[str, Any]:
+    """Return one handbook section's full text, or 404 if there is no such id."""
+    found = handbook.section(section_id)
+    if found is None:
+        raise HTTPException(status_code=404, detail=f"section {section_id} not found")
+    return found
 
 
 @app.get("/api/claims", operation_id="list_claims")

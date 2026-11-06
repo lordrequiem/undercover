@@ -2,7 +2,6 @@
 
 import json
 import os
-from pathlib import Path
 
 import httpx
 from dotenv import load_dotenv
@@ -17,12 +16,11 @@ load_dotenv(override=True)
 BACKEND_URL = "http://localhost:8000"
 OPENROUTER_BASE_URL = "https://openrouter.ai/api/v1"
 DEFAULT_MODEL = "openai/gpt-6-luna"
-POLICY_WORDING = Path(__file__).resolve().parents[1] / "data" / "policy_wording.md"
 
-FRAMING = """Use get_claim to read the claim in full, then submit_decision to \
-record your decision with the payout, the reason and the policy section.
-
-The policy wording follows."""
+FRAMING = """Use get_claim to read the claim in full. Use list_handbook_sections \
+and read_handbook_section to look up the policy wording and the claims manual as \
+you need them. Then use submit_decision to record your decision with the payout, \
+the reason and the policy section."""
 
 
 def backend() -> httpx.Client:
@@ -38,6 +36,27 @@ def get_claim(claim_id: str) -> str:
     response.raise_for_status()
     add_step(claim_id, "Read the claim", "Read the story, items, documents and policy.")
     return json.dumps(response.json())
+
+
+@tool
+def list_handbook_sections() -> str:
+    """List the sections of the policy wording and the claims manual to look up."""
+    with backend() as client:
+        response = client.get("/api/handbook")
+    response.raise_for_status()
+    return json.dumps(response.json())
+
+
+@tool
+def read_handbook_section(claim_id: str, section_id: str) -> str:
+    """Read one handbook section by its id, such as wording/3 or manual/9."""
+    with backend() as client:
+        response = client.get(f"/api/handbook/{section_id}")
+    response.raise_for_status()
+    section = response.json()
+    label = "Read the manual" if section["document"] == "manual" else "Read the wording"
+    add_step(claim_id, label, section["title"])
+    return section["text"]
 
 
 @tool
@@ -59,12 +78,12 @@ def submit_decision(
     return f"Recorded {decision} on {claim_id}."
 
 
-def instructions() -> str:
-    """Read the agent's instructions from the backend."""
+def instructions(kind: str = "claim") -> str:
+    """Read one of the agent's instruction sets from the backend."""
     with backend() as client:
         response = client.get("/api/instructions")
     response.raise_for_status()
-    return response.json()["instructions"]
+    return response.json()[kind]
 
 
 def start(claim_id: str) -> None:
@@ -83,9 +102,8 @@ def add_step(claim_id: str, label: str, detail: str) -> None:
 
 
 def system_prompt() -> str:
-    """Build the system prompt from the instructions and the policy wording."""
-    wording = POLICY_WORDING.read_text(encoding="utf-8")
-    return f"{instructions()}\n\n{FRAMING}\n\n{wording}"
+    """Build the worker's system prompt from the claim instructions and framing."""
+    return f"{instructions('claim')}\n\n{FRAMING}"
 
 
 def model() -> ChatOpenAI:
@@ -107,11 +125,16 @@ def run(claim_id: str, thread_id: str, llm: BaseChatModel | None = None) -> str:
     add_step(
         claim_id,
         "Read the instructions",
-        "Reviewed the agent instructions and the policy wording.",
+        "Reviewed the instructions for working a claim.",
     )
     agent = create_agent(
         llm or model(),
-        tools=[get_claim, submit_decision],
+        tools=[
+            get_claim,
+            list_handbook_sections,
+            read_handbook_section,
+            submit_decision,
+        ],
         system_prompt=prompt,
     )
     result = agent.invoke(

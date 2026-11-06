@@ -8,7 +8,9 @@ from typing import Any
 
 ROOT = Path(__file__).resolve().parents[1]
 DATA = ROOT / "data"
-INSTRUCTIONS = Path(__file__).resolve().parent / "instructions.md"
+HERE = Path(__file__).resolve().parent
+CLAIM_INSTRUCTIONS = HERE / "claim_instructions.md"
+QUEUE_INSTRUCTIONS = HERE / "queue_instructions.md"
 DEFAULT_DB = str(ROOT / "backend" / "undercover.db")
 
 SCHEMA = """
@@ -86,10 +88,14 @@ def seed() -> None:
             "INSERT OR IGNORE INTO settings (key, value) VALUES ('company', ?)",
             (json.dumps(_load("company.json")),),
         )
-        conn.execute(
-            "INSERT OR IGNORE INTO settings (key, value) VALUES ('instructions', ?)",
-            (INSTRUCTIONS.read_text(encoding="utf-8"),),
-        )
+        for key, path in (
+            ("claim_instructions", CLAIM_INSTRUCTIONS),
+            ("queue_instructions", QUEUE_INSTRUCTIONS),
+        ):
+            conn.execute(
+                "INSERT OR IGNORE INTO settings (key, value) VALUES (?, ?)",
+                (key, path.read_text(encoding="utf-8")),
+            )
         conn.commit()
     finally:
         conn.close()

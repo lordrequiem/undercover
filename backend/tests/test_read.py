@@ -39,7 +39,9 @@ def test_missing_claim_returns_404():
     assert client.get("/api/claims/CLM-9999").status_code == 404
 
 
-def test_instructions_returns_text():
+def test_instructions_returns_queue_and_claim_text():
     response = client.get("/api/instructions")
     assert response.status_code == 200
-    assert response.json()["instructions"].strip()
+    body = response.json()
+    assert body["queue"].strip()
+    assert body["claim"].strip()
