@@ -65,7 +65,9 @@ def db_path() -> str:
 
 def connect() -> sqlite3.Connection:
     """Open a connection to the UnderCover database."""
-    conn = sqlite3.connect(db_path())
+    # FastAPI runs sync endpoints on a threadpool, so a request's connection may
+    # be opened and closed on different threads; allow that.
+    conn = sqlite3.connect(db_path(), check_same_thread=False)
     conn.row_factory = sqlite3.Row
     return conn
 

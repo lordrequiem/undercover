@@ -275,7 +275,7 @@ screens show it.
 
 **Success criteria**
 
-- [ ] The Playwright e2e test passes: open the queue, see the run's to-do list
+- [x] The Playwright e2e test passes: open the queue, see the run's to-do list
       with mixed statuses and the summary, open a claim and see its steps
       including a section it read, and confirm a `for_handler` claim shows that
       state.
@@ -285,7 +285,8 @@ screens show it.
       Five claims are worked on their own; the dashboard queue shows the to-do
       list fill in and tick off and each claim's steps including the sections it
       read; the other 20 claims stay `waiting`; the printed summary matches.
-- [ ] `npm run check` is fully green (Python, TypeScript and Playwright).
+      (Left for a run on the real model, which spends OpenRouter credits.)
+- [x] `npm run check` is fully green (Python, TypeScript and Playwright).
 
 ---
 

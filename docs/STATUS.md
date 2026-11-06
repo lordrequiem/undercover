@@ -1,9 +1,12 @@
 # Status
 
-The claims pilot from `docs/PLAN.md` is built: a backend, an agent and a
-dashboard that work the claims queue the way a handler does.
+The claims pilot from `docs/PLAN.md` is built, and the harness from
+`docs/HARNESS.md` and `docs/PLAN_HARNESS.md` grows it into one run that works the
+whole queue on its own: a backend, an agent and a dashboard that plan a to-do
+list, hand each claim to a fresh helper, look up the wording and the manual
+section by section, recover from failures, and show it all on the screens.
 
-## The pilot
+## The harness
 
 - **Backend** (`backend/`, FastAPI + SQLite). Seeds a database on startup from
   `data/` (idempotently) and serves the queue, the claim detail, the agent's
