@@ -32,8 +32,12 @@ dashboard that work the claims queue the way a handler does.
   entry point and calls it. `run_queue(limit)` works the whole queue: it opens a
   run, makes one planning call to order the waiting claims (capped at `limit`)
   into a to-do list, works each with a fresh helper, and finishes with a summary
-  counting the outcomes. An `llm` injection point lets tests use a stub model.
-  Default model `openai/gpt-6-luna`, or `MODEL_NAME`.
+  counting the outcomes. It recovers from failures on its own: a failed claim is
+  caught, returned to the queue and tried once more, and a claim that fails
+  twice is left for a handler, so one bad claim never stops the run or strands a
+  claim in progress. Before finishing it re-checks that no capped claim is still
+  waiting. An `llm` injection point lets tests use a stub model. Default model
+  `openai/gpt-6-luna`, or `MODEL_NAME`.
 - **Dashboard** (`dashboard/`, React + Vite + TS). To UnderCover's brand, light
   and dark: the queue with each claim's state, the claim in full with the
   decision and the agent's activity, and the instructions read only. The

@@ -1,4 +1,5 @@
 import json
+from collections import defaultdict
 
 from fastapi.testclient import TestClient
 from langchain_core.language_models.fake_chat_models import GenericFakeChatModel
@@ -211,6 +212,141 @@ def test_run_queue_caps_the_run(monkeypatch):
     queue = TestClient(app).get("/api/claims").json()
     assert len([c for c in queue if c["state"] != "waiting"]) == 3
     assert len([c for c in queue if c["state"] == "waiting"]) == 22
+
+
+class FakeWorker:
+    """A stand-in for work_claim with a scripted outcome per attempt."""
+
+    def __init__(self, script):
+        self.script = script
+        self.calls = defaultdict(int)
+
+    def __call__(self, claim_id, llm, thread_id=None):
+        outcome = self.script[claim_id][self.calls[claim_id]]
+        self.calls[claim_id] += 1
+        main.start(claim_id)
+        if outcome == "raise":
+            raise RuntimeError("provider error")
+        if outcome == "fail":
+            return f"{claim_id}: failed"
+        main.submit_decision.invoke(
+            {
+                "claim_id": claim_id,
+                "decision": outcome,
+                "payout": 100.0 if outcome == "approve" else 0.0,
+                "reason": "r",
+                "policy_section": "3",
+            }
+        )
+        return main.report(claim_id, main.fetch_detail(claim_id))
+
+
+def setup_queue(monkeypatch, script):
+    """Point the agent at the test backend with a scripted fake worker."""
+    monkeypatch.setattr(main, "backend", lambda: TestClient(app))
+    monkeypatch.setattr(main, "plan_order", lambda ids, llm: ids)
+    worker = FakeWorker(script)
+    monkeypatch.setattr(main, "work_claim", worker)
+    return worker
+
+
+def items_by_claim(run):
+    return {item["claim_id"]: item for item in run["items"]}
+
+
+def test_a_raising_worker_does_not_stop_the_run(monkeypatch):
+    bad, good = first_waiting(3)[0], first_waiting(3)[1]
+    other = first_waiting(3)[2]
+    worker = setup_queue(
+        monkeypatch,
+        {bad: ["raise", "raise"], good: ["approve"], other: ["decline"]},
+    )
+    main.run_queue(3, StubModel(messages=iter([])))
+
+    run = TestClient(app).get("/api/runs/current").json()
+    assert run["finished"] is True
+    items = items_by_claim(run)
+    assert items[good]["status"] == "done"
+    assert items[other]["status"] == "done"
+    assert items[bad]["status"] == "for_handler"
+    assert worker.calls[bad] == 2
+
+
+def test_a_claim_that_fails_once_is_retried_and_succeeds(monkeypatch):
+    claim_id = first_waiting(1)[0]
+    worker = setup_queue(monkeypatch, {claim_id: ["fail", "approve"]})
+    main.run_queue(1, StubModel(messages=iter([])))
+
+    assert worker.calls[claim_id] == 2
+    run = TestClient(app).get("/api/runs/current").json()
+    assert items_by_claim(run)[claim_id]["status"] == "done"
+    detail = TestClient(app).get(f"/api/claims/{claim_id}").json()
+    assert detail["decision"]["decision"] == "approve"
+
+
+def test_a_claim_that_fails_twice_is_left_for_a_handler(monkeypatch):
+    claim_id = first_waiting(1)[0]
+    setup_queue(monkeypatch, {claim_id: ["fail", "fail"]})
+    main.run_queue(1, StubModel(messages=iter([])))
+
+    detail = TestClient(app).get(f"/api/claims/{claim_id}").json()
+    assert detail["state"] == "for_handler"
+    assert detail["decision"] is None
+    run = TestClient(app).get("/api/runs/current").json()
+    assert items_by_claim(run)[claim_id]["status"] == "for_handler"
+
+
+def test_no_claim_is_left_in_progress(monkeypatch):
+    first, second = first_waiting(2)
+    setup_queue(monkeypatch, {first: ["fail", "fail"], second: ["approve"]})
+    main.run_queue(2, StubModel(messages=iter([])))
+
+    queue = TestClient(app).get("/api/claims").json()
+    assert all(c["state"] != "in_progress" for c in queue)
+
+
+def test_the_missed_claims_check_leaves_no_capped_claim_waiting(monkeypatch):
+    capped = first_waiting(2)
+    setup_queue(monkeypatch, {capped[0]: ["fail", "approve"], capped[1]: ["approve"]})
+    main.run_queue(2, StubModel(messages=iter([])))
+
+    queue = {
+        c["claim_id"]: c["state"] for c in TestClient(app).get("/api/claims").json()
+    }
+    assert all(queue[claim_id] != "waiting" for claim_id in capped)
+
+
+def test_a_retry_never_records_a_second_decision(monkeypatch):
+    claim_id = first_waiting(1)[0]
+
+    class DecideThenCrash(FakeWorker):
+        def __call__(self, cid, llm, thread_id=None):
+            self.calls[cid] += 1
+            main.submit_decision.invoke(
+                {
+                    "claim_id": cid,
+                    "decision": "approve",
+                    "payout": 100.0,
+                    "reason": "r",
+                    "policy_section": "3",
+                }
+            )
+            return f"{cid}: failed"
+
+    worker = DecideThenCrash({})
+    monkeypatch.setattr(main, "backend", lambda: TestClient(app))
+    monkeypatch.setattr(main, "plan_order", lambda ids, llm: ids)
+    monkeypatch.setattr(main, "work_claim", worker)
+    main.run_queue(1, StubModel(messages=iter([])))
+
+    assert worker.calls[claim_id] == 1
+    detail = TestClient(app).get(f"/api/claims/{claim_id}").json()
+    assert detail["state"] == "decided"
+    again = TestClient(app).post(
+        f"/api/claims/{claim_id}/decision",
+        json={"decision": "decline", "payout": 0, "reason": "r", "policy_section": "3"},
+    )
+    assert again.status_code == 409
 
 
 def test_model_name(monkeypatch):

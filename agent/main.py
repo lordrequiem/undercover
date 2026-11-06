@@ -229,6 +229,32 @@ def finish_run(run_id: int, summary: str) -> None:
         ).raise_for_status()
 
 
+def requeue(claim_id: str) -> None:
+    """Return a failed claim to the queue to be tried again."""
+    with backend() as client:
+        client.post(f"/api/claims/{claim_id}/requeue").raise_for_status()
+
+
+def hand_to_handler(claim_id: str) -> None:
+    """Leave a claim that failed twice for a handler."""
+    with backend() as client:
+        client.post(f"/api/claims/{claim_id}/for_handler").raise_for_status()
+
+
+def decided(claim_id: str) -> bool:
+    """Say whether the claim has a recorded decision."""
+    return fetch_detail(claim_id)["decision"] is not None
+
+
+def safe_work(claim_id: str, llm: BaseChatModel) -> str:
+    """Work a claim, turning any failure into a report instead of an escape."""
+    try:
+        return work_claim(claim_id, llm)
+    except Exception as error:
+        add_step(claim_id, "Hit a problem", f"The worker failed: {error}")
+        return f"{claim_id}: failed"
+
+
 def summarise(reports: list[str]) -> str:
     """Count the outcomes of a run's reports into one line for the handlers."""
     if not reports:
@@ -239,17 +265,36 @@ def summarise(reports: list[str]) -> str:
 
 
 def run_queue(limit: int | None = None, llm: BaseChatModel | None = None) -> str:
-    """Work every waiting claim, up to `limit`, and return a short summary."""
+    """Work every waiting claim, up to `limit`, recovering from failures."""
     chat = llm or model()
     run_id = open_run(limit)
     ordered = plan_order(waiting_claims(limit), chat)
     write_plan(run_id, ordered)
-    reports = []
+    reports: dict[str, str] = {}
     for claim_id in ordered:
         set_item(run_id, claim_id, "in_progress", "Working the claim.")
-        report = work_claim(claim_id, chat)
-        reports.append(report)
-        set_item(run_id, claim_id, "done", report)
-    summary = summarise(reports)
+        reports[claim_id] = safe_work(claim_id, chat)
+        if decided(claim_id):
+            set_item(run_id, claim_id, "done", reports[claim_id])
+        else:
+            requeue(claim_id)
+            set_item(run_id, claim_id, "to_do", "Failed; back in the queue.")
+    # Try any claim still waiting once more, then leave it for a handler. This
+    # also catches a claim in the cap that the loop somehow missed.
+    for claim_id in ordered:
+        if fetch_detail(claim_id)["state"] != "waiting":
+            continue
+        set_item(run_id, claim_id, "in_progress", "Trying the claim again.")
+        report = safe_work(claim_id, chat)
+        if decided(claim_id):
+            set_item(run_id, claim_id, "done", report)
+            reports[claim_id] = report
+        else:
+            hand_to_handler(claim_id)
+            set_item(
+                run_id, claim_id, "for_handler", "Failed twice; left for a handler."
+            )
+            reports[claim_id] = f"{claim_id}: for_handler"
+    summary = summarise(list(reports.values()))
     finish_run(run_id, summary)
     return summary

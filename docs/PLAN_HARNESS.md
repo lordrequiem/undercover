@@ -199,20 +199,20 @@ or stranding a claim.
 
 **Success criteria**
 
-- [ ] `uv run pytest -q` passes, covering, all with stub models:
-  - [ ] a worker that raises on one claim does not stop the run; the other
+- [x] `uv run pytest -q` passes, covering, all with stub models:
+  - [x] a worker that raises on one claim does not stop the run; the other
         claims are still worked and the run finishes.
-  - [ ] a claim that fails once is returned to `waiting` and tried again, and
+  - [x] a claim that fails once is returned to `waiting` and tried again, and
         succeeds on the retry (its item ends `done`).
-  - [ ] a claim that fails twice ends `for_handler`, with the claim in state
+  - [x] a claim that fails twice ends `for_handler`, with the claim in state
         `for_handler` and no decision recorded.
-  - [ ] no claim is left `in_progress` after a run, however its worker ended.
-  - [ ] the missed-claims check: if a claim in the cap is still `waiting` when
+  - [x] no claim is left `in_progress` after a run, however its worker ended.
+  - [x] the missed-claims check: if a claim in the cap is still `waiting` when
         the loop ends, `run_queue` works it before finishing.
-- [ ] `uv run pytest -q` includes a test that a retry never records a second
+- [x] `uv run pytest -q` includes a test that a retry never records a second
       decision on a claim already decided (the Phase 2 guard, exercised through
       `run_queue`).
-- [ ] `npm run check:python` is green.
+- [x] `npm run check:python` is green.
 
 ---
 
