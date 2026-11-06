@@ -66,3 +66,30 @@ def test_pay_refuses_a_claim_that_is_not_approved():
 def test_signoff_refuses_a_claim_not_waiting():
     decide("CLM-1008", "approve", 500.0)
     assert client.post("/api/claims/CLM-1008/signoff").status_code == 409
+
+
+def test_a_second_decision_is_refused():
+    assert decide("CLM-1009", "approve", 500.0).status_code == 200
+    assert decide("CLM-1009", "decline").status_code == 409
+    detail = client.get("/api/claims/CLM-1009").json()
+    assert detail["decision"]["decision"] == "approve"
+
+
+def test_requeue_returns_an_in_progress_claim_to_waiting():
+    client.post("/api/claims/CLM-1010/start")
+    assert client.get("/api/claims/CLM-1010").json()["state"] == "in_progress"
+    body = client.post("/api/claims/CLM-1010/requeue")
+    assert body.status_code == 200
+    assert body.json()["state"] == "waiting"
+
+
+def test_requeue_is_refused_once_a_decision_exists():
+    decide("CLM-1011", "approve", 500.0)
+    assert client.post("/api/claims/CLM-1011/requeue").status_code == 409
+
+
+def test_for_handler_moves_a_claim_to_for_handler():
+    client.post("/api/claims/CLM-1012/start")
+    body = client.post("/api/claims/CLM-1012/for_handler")
+    assert body.status_code == 200
+    assert body.json()["state"] == "for_handler"

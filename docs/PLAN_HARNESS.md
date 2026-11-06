@@ -126,16 +126,16 @@ paid twice.
 
 **Success criteria**
 
-- [ ] `uv run pytest -q agent` passes, covering: `work_claim` with a stub model
+- [x] `uv run pytest -q agent` passes, covering: `work_claim` with a stub model
       records the decision and returns a one-line report containing the claim id
       and the decision; a second `work_claim` on an already-decided claim does
       not record a second decision (the report says it is already decided).
-- [ ] `uv run pytest -q backend` passes, covering: a second `decision` returns
+- [x] `uv run pytest -q backend` passes, covering: a second `decision` returns
       409; `requeue` returns an `in_progress` claim to `waiting`; `requeue`
       returns 409 once a decision exists; `for_handler` moves a claim to
       `for_handler`.
-- [ ] By API: decide `CLM-10xx`, then `decision` again → 409; `requeue` → 409.
-- [ ] `npm run check:python` is green.
+- [x] By API: decide `CLM-10xx`, then `decision` again → 409; `requeue` → 409.
+- [x] `npm run check:python` is green.
 
 ---
 

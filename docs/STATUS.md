@@ -17,13 +17,18 @@ dashboard that work the claims queue the way a handler does.
   - `GET /api/handbook`, `GET /api/handbook/{section_id}`
   - `POST /api/claims/{id}/start`, `POST /api/claims/{id}/steps`
   - `POST /api/claims/{id}/decision`, `.../signoff`, `.../pay`
+  - `POST /api/claims/{id}/requeue`, `.../for_handler`
+  - No claim is decided twice: a second decision, or a requeue of a decided
+    claim, is refused with 409.
 - **Agent** (`agent/`, LangChain `create_agent` on OpenRouter). Reaches the
   claim and its instructions only through the backend API. Its prompt is the
   server-side claim instructions; it reads the claim, looks up the sections of
   the wording and the manual it needs, decides approve, decline or refer, works
-  out the payout, and records the decision with the relevant policy section. One
-  entry point, `run(claim_id, thread_id)`, with an `llm` injection point so
-  tests use a stub model. Default model `openai/gpt-6-luna`, or `MODEL_NAME`.
+  out the payout, and records the decision with the relevant policy section. A
+  claim is worked by `work_claim(claim_id)`, a fresh agent with a fresh thread
+  that reports back in one line; `run(claim_id, thread_id)` is the named-claim
+  entry point and calls it. An `llm` injection point lets tests use a stub
+  model. Default model `openai/gpt-6-luna`, or `MODEL_NAME`.
 - **Dashboard** (`dashboard/`, React + Vite + TS). To UnderCover's brand, light
   and dark: the queue with each claim's state, the claim in full with the
   decision and the agent's activity, and the instructions read only. The

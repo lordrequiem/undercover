@@ -92,7 +92,7 @@ def test_run_records_the_decision(monkeypatch):
         "thread-1",
         StubModel(messages=iter(decision_call("CLM-1001", "approve", 500.0))),
     )
-    assert reply == "I have approved the claim."
+    assert reply == "CLM-1001: approve, $500.00"
     detail = TestClient(app).get("/api/claims/CLM-1001").json()
     assert detail["state"] == "decided"
     assert detail["decision"]["decision"] == "approve"
@@ -145,6 +145,34 @@ def test_run_moves_through_in_progress_to_final(monkeypatch):
     )
     assert seen["state"] == "in_progress"
     assert TestClient(app).get("/api/claims/CLM-1001").json()["state"] == "decided"
+
+
+def test_work_claim_records_the_decision_and_reports_it(monkeypatch):
+    monkeypatch.setattr(main, "backend", lambda: TestClient(app))
+    report = main.work_claim(
+        "CLM-1004",
+        StubModel(messages=iter(decision_call("CLM-1004", "refer", 0.0))),
+    )
+    assert report == "CLM-1004: refer"
+    detail = TestClient(app).get("/api/claims/CLM-1004").json()
+    assert detail["decision"]["decision"] == "refer"
+
+
+def test_work_claim_leaves_an_already_decided_claim_alone(monkeypatch):
+    monkeypatch.setattr(main, "backend", lambda: TestClient(app))
+    main.work_claim(
+        "CLM-1001",
+        StubModel(messages=iter(decision_call("CLM-1001", "approve", 300.0))),
+    )
+    steps_before = len(TestClient(app).get("/api/claims/CLM-1001").json()["steps"])
+    report = main.work_claim(
+        "CLM-1001",
+        StubModel(messages=iter(decision_call("CLM-1001", "decline", 0.0))),
+    )
+    assert "already decided" in report
+    detail = TestClient(app).get("/api/claims/CLM-1001").json()
+    assert detail["decision"]["decision"] == "approve"
+    assert len(detail["steps"]) == steps_before
 
 
 def test_model_name(monkeypatch):

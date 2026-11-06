@@ -2,6 +2,7 @@
 
 import json
 import os
+from uuid import uuid4
 
 import httpx
 from dotenv import load_dotenv
@@ -117,11 +118,32 @@ def model() -> ChatOpenAI:
     )
 
 
-def run(claim_id: str, thread_id: str, llm: BaseChatModel | None = None) -> str:
-    """Run the agent on one claim and return its final reply."""
+def fetch_detail(claim_id: str) -> dict:
+    """Read a claim's current detail from the backend."""
+    with backend() as client:
+        response = client.get(f"/api/claims/{claim_id}")
+    response.raise_for_status()
+    return response.json()
+
+
+def report(claim_id: str, detail: dict) -> str:
+    """Summarise a claim's outcome in one line."""
+    decision = detail["decision"]
+    if decision is None:
+        return f"{claim_id}: failed"
+    if decision["decision"] == "approve":
+        return f"{claim_id}: approve, ${decision['payout']:.2f}"
+    return f"{claim_id}: {decision['decision']}"
+
+
+def work_claim(
+    claim_id: str, llm: BaseChatModel | None = None, thread_id: str | None = None
+) -> str:
+    """Work one claim from a clean start and return its one-line report."""
+    if fetch_detail(claim_id)["decision"] is not None:
+        return f"{claim_id}: already decided"
     start(claim_id)
     add_step(claim_id, "Picked up the claim", f"Opened {claim_id} from the queue.")
-    prompt = system_prompt()
     add_step(
         claim_id,
         "Read the instructions",
@@ -135,12 +157,16 @@ def run(claim_id: str, thread_id: str, llm: BaseChatModel | None = None) -> str:
             read_handbook_section,
             submit_decision,
         ],
-        system_prompt=prompt,
+        system_prompt=system_prompt(),
     )
     result = agent.invoke(
         {"messages": [{"role": "user", "content": f"Decide claim {claim_id}."}]},
-        config={"configurable": {"thread_id": thread_id}},
+        config={"configurable": {"thread_id": thread_id or uuid4().hex}},
     )
-    reply = result["messages"][-1].text
-    add_step(claim_id, "Recorded the decision", reply)
-    return reply
+    add_step(claim_id, "Recorded the decision", result["messages"][-1].text)
+    return report(claim_id, fetch_detail(claim_id))
+
+
+def run(claim_id: str, thread_id: str, llm: BaseChatModel | None = None) -> str:
+    """Work one named claim and return its one-line report."""
+    return work_claim(claim_id, llm, thread_id)

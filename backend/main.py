@@ -210,7 +210,9 @@ def add_step(claim_id: str, body: StepIn, conn: Conn) -> dict[str, Any]:
 @app.post("/api/claims/{claim_id}/decision", operation_id="decide_claim")
 def decide_claim(claim_id: str, body: DecisionIn, conn: Conn) -> dict[str, Any]:
     """Record a decision and move the claim to its resulting state."""
-    fetch_claim(conn, claim_id)
+    row = fetch_claim(conn, claim_id)
+    if row["decision"] is not None:
+        raise HTTPException(status_code=409, detail="claim already has a decision")
     payout = body.payout if body.decision == "approve" else 0.0
     limit = company(conn)["payout_approval_limit"]
     over_limit = body.decision == "approve" and payout > limit
@@ -219,6 +221,28 @@ def decide_claim(claim_id: str, body: DecisionIn, conn: Conn) -> dict[str, Any]:
         "UPDATE claims SET decision = ?, payout = ?, reason = ?,"
         " policy_section = ?, state = ? WHERE claim_id = ?",
         (body.decision, payout, body.reason, body.policy_section, state, claim_id),
+    )
+    conn.commit()
+    return claim_detail(conn, claim_id)
+
+
+@app.post("/api/claims/{claim_id}/requeue", operation_id="requeue_claim")
+def requeue_claim(claim_id: str, conn: Conn) -> dict[str, Any]:
+    """Return a claim to waiting to be worked again, unless it is already decided."""
+    row = fetch_claim(conn, claim_id)
+    if row["decision"] is not None:
+        raise HTTPException(status_code=409, detail="claim already has a decision")
+    conn.execute("UPDATE claims SET state = 'waiting' WHERE claim_id = ?", (claim_id,))
+    conn.commit()
+    return claim_detail(conn, claim_id)
+
+
+@app.post("/api/claims/{claim_id}/for_handler", operation_id="hand_to_handler")
+def hand_to_handler(claim_id: str, conn: Conn) -> dict[str, Any]:
+    """Leave a claim for a handler to work by hand."""
+    fetch_claim(conn, claim_id)
+    conn.execute(
+        "UPDATE claims SET state = 'for_handler' WHERE claim_id = ?", (claim_id,)
     )
     conn.commit()
     return claim_detail(conn, claim_id)
