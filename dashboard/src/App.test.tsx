@@ -15,13 +15,13 @@ afterEach(() => {
 it("shows the queue by default and the claim detail on its hash", async () => {
   vi.stubGlobal(
     "fetch",
-    vi.fn((input: string) =>
-      Promise.resolve(
-        input === "/api/claims"
-          ? jsonResponse([queueItem])
-          : jsonResponse(claimDetail),
-      ),
-    ),
+    vi.fn((input: string) => {
+      if (input === "/api/claims")
+        return Promise.resolve(jsonResponse([queueItem]));
+      if (input === "/api/runs/current")
+        return Promise.resolve(jsonResponse(null));
+      return Promise.resolve(jsonResponse(claimDetail));
+    }),
   );
   render(<App />);
   expect(await screen.findByText("Claims queue")).toBeDefined();

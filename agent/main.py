@@ -17,7 +17,7 @@ load_dotenv(override=True)
 
 BACKEND_URL = "http://localhost:8000"
 OPENROUTER_BASE_URL = "https://openrouter.ai/api/v1"
-DEFAULT_MODEL = "openai/gpt-6-luna"
+DEFAULT_MODEL = "deepseek/deepseek-v4.1-flash"
 
 FRAMING = """Use get_claim to read the claim in full. Use list_handbook_sections \
 and read_handbook_section to look up the policy wording and the claims manual as \
@@ -109,7 +109,7 @@ def system_prompt() -> str:
 
 
 def model() -> ChatOpenAI:
-    """Return the model named in MODEL_NAME, or GPT-6 Luna by default."""
+    """Return the model named in MODEL_NAME, or DeepSeek V4.1 Flash by default."""
     name = os.getenv("MODEL_NAME")
     return ChatOpenAI(
         model=name or DEFAULT_MODEL,

@@ -1,4 +1,25 @@
-import type { ClaimDetail, QueueItem } from "./api";
+import type { ClaimDetail, CurrentRun, QueueItem } from "./api";
+
+export const currentRun: CurrentRun = {
+  run_id: 1,
+  limit: 4,
+  finished: true,
+  summary: "Worked 4 claims: 2 approve, 1 refer, 1 for_handler.",
+  items: [
+    {
+      claim_id: "CLM-1001",
+      status: "done",
+      note: "CLM-1001: approve, $420.00",
+    },
+    { claim_id: "CLM-1002", status: "in_progress", note: "Working the claim." },
+    { claim_id: "CLM-1003", status: "to_do", note: "" },
+    {
+      claim_id: "CLM-1004",
+      status: "for_handler",
+      note: "Failed twice; left for a handler.",
+    },
+  ],
+};
 
 export const queueItem: QueueItem = {
   claim_id: "CLM-1001",

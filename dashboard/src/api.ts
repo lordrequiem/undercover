@@ -1,5 +1,26 @@
 export type ClaimState =
-  "waiting" | "in_progress" | "waiting_for_signoff" | "decided";
+  "waiting" | "in_progress" | "waiting_for_signoff" | "decided" | "for_handler";
+
+export type RunItemStatus = "to_do" | "in_progress" | "done" | "for_handler";
+
+export interface RunItem {
+  claim_id: string;
+  status: RunItemStatus;
+  note: string;
+}
+
+export interface CurrentRun {
+  run_id: number;
+  limit: number | null;
+  finished: boolean;
+  summary: string | null;
+  items: RunItem[];
+}
+
+export interface InstructionSet {
+  queue: string;
+  claim: string;
+}
 
 export interface QueueItem {
   claim_id: string;
@@ -108,9 +129,12 @@ export function fetchClaim(claimId: string): Promise<ClaimDetail> {
   return getJson<ClaimDetail>(`/api/claims/${claimId}`);
 }
 
-export async function fetchInstructions(): Promise<string> {
-  const data = await getJson<{ instructions: string }>("/api/instructions");
-  return data.instructions;
+export function fetchCurrentRun(): Promise<CurrentRun | null> {
+  return getJson<CurrentRun | null>("/api/runs/current");
+}
+
+export function fetchInstructions(): Promise<InstructionSet> {
+  return getJson<InstructionSet>("/api/instructions");
 }
 
 const money = new Intl.NumberFormat("en-US", {
@@ -128,10 +152,22 @@ const STATE_LABELS: Record<ClaimState, string> = {
   in_progress: "In progress",
   waiting_for_signoff: "Waiting for sign-off",
   decided: "Decided",
+  for_handler: "For handler",
 };
 
 export function stateLabel(state: ClaimState): string {
   return STATE_LABELS[state];
+}
+
+const RUN_ITEM_LABELS: Record<RunItemStatus, string> = {
+  to_do: "To do",
+  in_progress: "In progress",
+  done: "Done",
+  for_handler: "For handler",
+};
+
+export function runItemLabel(status: RunItemStatus): string {
+  return RUN_ITEM_LABELS[status];
 }
 
 export function titleCase(value: string): string {

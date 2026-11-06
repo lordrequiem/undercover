@@ -16,6 +16,12 @@ We want an AI agent, the UnderCover Agent, to work the queue the way a handler d
 - explain the decision in two or three sentences, along with the relevant section of the policy
 
 Our goal is to handle claims straight through, as accurately as our handlers do.
+The agent now works the whole queue in one run, planning its own to-do list,
+handing each claim to a fresh helper, and looking up the policy wording and the
+claims manual section by section as it needs them. It recovers from failures on
+its own and never decides or pays a claim twice. It runs on DeepSeek V4.1 Flash
+by default, overridable with `MODEL_NAME`. The harness is specified in full in
+`docs/HARNESS.md`.
 
 ## What the team needs to see
 

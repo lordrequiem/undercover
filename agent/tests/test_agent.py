@@ -352,6 +352,8 @@ def test_a_retry_never_records_a_second_decision(monkeypatch):
 def test_model_name(monkeypatch):
     monkeypatch.setenv("OPENROUTER_API_KEY", "test-key")
     monkeypatch.delenv("MODEL_NAME", raising=False)
-    assert main.model().model_name == "openai/gpt-6-luna"
+    assert main.model().model_name == "deepseek/deepseek-v4.1-flash"
+    assert main.model().reasoning_effort == "low"
     monkeypatch.setenv("MODEL_NAME", "openrouter/free")
     assert main.model().model_name == "openrouter/free"
+    assert main.model().reasoning_effort is None

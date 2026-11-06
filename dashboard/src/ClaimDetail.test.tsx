@@ -33,6 +33,26 @@ it("marks a claim as working while it is in progress", async () => {
   expect(screen.getByText("Picked up the claim")).toBeDefined();
 });
 
+it("shows the for-handler state and the sections the agent read", async () => {
+  const handed = {
+    ...claimDetail,
+    state: "for_handler" as const,
+    decision: null,
+    steps: [
+      {
+        label: "Picked up the claim",
+        detail: "Opened CLM-1001 from the queue.",
+      },
+      { label: "Read the manual", detail: "9. Repeat claims" },
+    ],
+  };
+  vi.stubGlobal("fetch", vi.fn().mockResolvedValue(jsonResponse(handed)));
+  render(<ClaimDetail claimId="CLM-1001" />);
+  expect(await screen.findByText("For handler")).toBeDefined();
+  expect(screen.getByText("Read the manual")).toBeDefined();
+  expect(screen.getByText("9. Repeat claims")).toBeDefined();
+});
+
 it("omits the decision panel when there is no decision", async () => {
   const pending = {
     ...claimDetail,

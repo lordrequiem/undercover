@@ -244,18 +244,18 @@ read on the screens, to UnderCover's brand.
 
 **Success criteria**
 
-- [ ] `uv run pytest -q agent` passes a test that the default model is
+- [x] `uv run pytest -q agent` passes a test that the default model is
       `deepseek/deepseek-v4.1-flash` and that `MODEL_NAME` overrides it.
-- [ ] `vitest run --root dashboard --coverage` passes with component tests
+- [x] `vitest run --root dashboard --coverage` passes with component tests
       (fetch stubbed) for the to-do list on the queue page (the four statuses
       and the summary), the `for_handler` badge, and the instructions page
       showing both sets.
-- [ ] `npm run dev`, then with the Playwright MCP server: the instructions page
+- [x] `npm run dev`, then with the Playwright MCP server: the instructions page
       shows both instruction sets with no edit control; a claim worked by a stub
       shows its read-the-manual steps.
-- [ ] `docs/STATUS.md`, `docs/TECH_STACK.md` and `docs/SPEC.md` describe the
+- [x] `docs/STATUS.md`, `docs/TECH_STACK.md` and `docs/SPEC.md` describe the
       harness, the default model, the manual and the run.
-- [ ] `npm run check:ts` is green.
+- [x] `npm run check:ts` is green.
 
 ---
 

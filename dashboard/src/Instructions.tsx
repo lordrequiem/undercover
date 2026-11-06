@@ -1,8 +1,8 @@
 import { useEffect, useState } from "react";
-import { fetchInstructions } from "./api";
+import { type InstructionSet, fetchInstructions } from "./api";
 
 export function Instructions() {
-  const [text, setText] = useState<string | null>(null);
+  const [text, setText] = useState<InstructionSet | null>(null);
 
   useEffect(() => {
     void fetchInstructions().then(setText);
@@ -17,7 +17,12 @@ export function Instructions() {
       {text === null ? (
         <p className="muted">Loading the instructions.</p>
       ) : (
-        <pre className="instructions">{text}</pre>
+        <>
+          <h3>Running the queue</h3>
+          <pre className="instructions">{text.queue}</pre>
+          <h3>Working a claim</h3>
+          <pre className="instructions">{text.claim}</pre>
+        </>
       )}
     </section>
   );

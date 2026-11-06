@@ -37,19 +37,28 @@ dashboard that work the claims queue the way a handler does.
   twice is left for a handler, so one bad claim never stops the run or strands a
   claim in progress. Before finishing it re-checks that no capped claim is still
   waiting. An `llm` injection point lets tests use a stub model. Default model
-  `openai/gpt-6-luna`, or `MODEL_NAME`.
+  `deepseek/deepseek-v4.1-flash` on OpenRouter at low reasoning effort, or
+  `MODEL_NAME`.
 - **Dashboard** (`dashboard/`, React + Vite + TS). To UnderCover's brand, light
-  and dark: the queue with each claim's state, the claim in full with the
-  decision and the agent's activity, and the instructions read only. The
-  activity panel refreshes while a claim is in progress.
+  and dark: the queue with each claim's state and, alongside it, the current
+  run's to-do list — each item to do, in progress, done or for a handler, with
+  its note — and the run summary when finished, filling in and ticking off while
+  the run works; the claim in full with the decision and the agent's activity,
+  including the sections it read; and both instruction sets, read only. The
+  queue and the activity panel refresh while work is in progress.
 
-The agent works from the policy wording alone. `data/evals/` is the answer key
-and is never read by the backend, the agent or the dashboard.
+The agent looks up the policy wording and the claims manual section by section.
+`data/evals/` is the answer key and is never read by the backend, the agent or
+the dashboard.
 
 ## How to run
 
 - `uv sync` and `npm install` install everything.
 - `npm run dev` starts the backend and the dashboard.
-- Run the agent on a claim: `uv run python -c "from agent.main import run;
-  print(run('CLM-1001', 'session-1'))"`, then open the claim in the dashboard.
+- Run the whole queue, capped for a trial: `uv run python -c "from agent.main
+  import run_queue; print(run_queue(limit=5))"`, then watch the queue page fill
+  in and tick off. For a live run, delete `backend/undercover.db` first so the
+  backend reseeds, and keep the cap at five.
+- Run the agent on one named claim: `uv run python -c "from agent.main import
+  run; print(run('CLM-1001', 'session-1'))"`, then open the claim.
 - `npm run check` runs every check (Python, TypeScript, Playwright).
