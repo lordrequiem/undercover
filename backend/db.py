@@ -41,6 +41,20 @@ CREATE TABLE IF NOT EXISTS settings (
     key TEXT PRIMARY KEY,
     value TEXT NOT NULL
 );
+CREATE TABLE IF NOT EXISTS runs (
+    run_id INTEGER PRIMARY KEY AUTOINCREMENT,
+    limit_count INTEGER,
+    summary TEXT,
+    finished INTEGER NOT NULL DEFAULT 0
+);
+CREATE TABLE IF NOT EXISTS run_items (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    run_id INTEGER NOT NULL,
+    ordinal INTEGER NOT NULL,
+    claim_id TEXT NOT NULL,
+    status TEXT NOT NULL DEFAULT 'to_do',
+    note TEXT NOT NULL DEFAULT ''
+);
 """
 
 

@@ -167,15 +167,15 @@ list, work each with a fresh helper, and finish with a summary.
 
 **Success criteria**
 
-- [ ] `uv run pytest -q` passes, covering: `run_queue` with a stub model stores a
+- [x] `uv run pytest -q` passes, covering: `run_queue` with a stub model stores a
       to-do list whose items match the capped claims and end `done`;
       `GET /api/runs/current` returns them in order with their notes; the summary
       counts the outcomes.
-- [ ] A test proves the cap: `run_queue(limit=3)` on a fresh seed works exactly
+- [x] A test proves the cap: `run_queue(limit=3)` on a fresh seed works exactly
       three claims; the other 22 stay `waiting`.
-- [ ] By API after a stub run: `GET /api/runs/current` shows the to-do list with
+- [x] By API after a stub run: `GET /api/runs/current` shows the to-do list with
       per-item status and a summary.
-- [ ] `npm run check:python` is green.
+- [x] `npm run check:python` is green.
 
 ---
 

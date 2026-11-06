@@ -2,6 +2,7 @@
 
 import json
 import os
+from collections import Counter
 from uuid import uuid4
 
 import httpx
@@ -170,3 +171,85 @@ def work_claim(
 def run(claim_id: str, thread_id: str, llm: BaseChatModel | None = None) -> str:
     """Work one named claim and return its one-line report."""
     return work_claim(claim_id, llm, thread_id)
+
+
+def waiting_claims(limit: int | None) -> list[str]:
+    """Read the waiting claims from the queue, capped at `limit`."""
+    with backend() as client:
+        response = client.get("/api/claims")
+    response.raise_for_status()
+    ids = [c["claim_id"] for c in response.json() if c["state"] == "waiting"]
+    return ids if limit is None else ids[:limit]
+
+
+def plan_order(claim_ids: list[str], llm: BaseChatModel) -> list[str]:
+    """Ask the model for the order to work the claims, reconciled to the set."""
+    if not claim_ids:
+        return []
+    prompt = (
+        f"{instructions('queue')}\n\nOrder these claims to work them, best first, "
+        "and reply with their ids in that order:\n" + "\n".join(claim_ids)
+    )
+    text = llm.invoke(prompt).text
+    ordered = [c for _, c in sorted((text.find(c), c) for c in claim_ids if c in text)]
+    ordered += [c for c in claim_ids if c not in ordered]
+    return ordered
+
+
+def open_run(limit: int | None) -> int:
+    """Open a run on the backend and return its id."""
+    with backend() as client:
+        response = client.post("/api/runs", json={"limit": limit})
+    response.raise_for_status()
+    return response.json()["run_id"]
+
+
+def write_plan(run_id: int, claim_ids: list[str]) -> None:
+    """Write the run's to-do list in order."""
+    with backend() as client:
+        client.post(
+            f"/api/runs/{run_id}/plan", json={"claim_ids": claim_ids}
+        ).raise_for_status()
+
+
+def set_item(run_id: int, claim_id: str, status: str, note: str) -> None:
+    """Update one item on the run's to-do list."""
+    with backend() as client:
+        client.post(
+            f"/api/runs/{run_id}/items/{claim_id}",
+            json={"status": status, "note": note},
+        ).raise_for_status()
+
+
+def finish_run(run_id: int, summary: str) -> None:
+    """Store the run's summary and mark it finished."""
+    with backend() as client:
+        client.post(
+            f"/api/runs/{run_id}/finish", json={"summary": summary}
+        ).raise_for_status()
+
+
+def summarise(reports: list[str]) -> str:
+    """Count the outcomes of a run's reports into one line for the handlers."""
+    if not reports:
+        return "No claims to work."
+    counts = Counter(report.split(": ", 1)[1].split(",")[0] for report in reports)
+    parts = ", ".join(f"{count} {name}" for name, count in sorted(counts.items()))
+    return f"Worked {len(reports)} claims: {parts}."
+
+
+def run_queue(limit: int | None = None, llm: BaseChatModel | None = None) -> str:
+    """Work every waiting claim, up to `limit`, and return a short summary."""
+    chat = llm or model()
+    run_id = open_run(limit)
+    ordered = plan_order(waiting_claims(limit), chat)
+    write_plan(run_id, ordered)
+    reports = []
+    for claim_id in ordered:
+        set_item(run_id, claim_id, "in_progress", "Working the claim.")
+        report = work_claim(claim_id, chat)
+        reports.append(report)
+        set_item(run_id, claim_id, "done", report)
+    summary = summarise(reports)
+    finish_run(run_id, summary)
+    return summary

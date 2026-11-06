@@ -18,6 +18,8 @@ dashboard that work the claims queue the way a handler does.
   - `POST /api/claims/{id}/start`, `POST /api/claims/{id}/steps`
   - `POST /api/claims/{id}/decision`, `.../signoff`, `.../pay`
   - `POST /api/claims/{id}/requeue`, `.../for_handler`
+  - `POST /api/runs`, `.../plan`, `.../items/{claim_id}`, `.../finish`,
+    `GET /api/runs/current` for the current run and its to-do list
   - No claim is decided twice: a second decision, or a requeue of a decided
     claim, is refused with 409.
 - **Agent** (`agent/`, LangChain `create_agent` on OpenRouter). Reaches the
@@ -27,8 +29,11 @@ dashboard that work the claims queue the way a handler does.
   out the payout, and records the decision with the relevant policy section. A
   claim is worked by `work_claim(claim_id)`, a fresh agent with a fresh thread
   that reports back in one line; `run(claim_id, thread_id)` is the named-claim
-  entry point and calls it. An `llm` injection point lets tests use a stub
-  model. Default model `openai/gpt-6-luna`, or `MODEL_NAME`.
+  entry point and calls it. `run_queue(limit)` works the whole queue: it opens a
+  run, makes one planning call to order the waiting claims (capped at `limit`)
+  into a to-do list, works each with a fresh helper, and finishes with a summary
+  counting the outcomes. An `llm` injection point lets tests use a stub model.
+  Default model `openai/gpt-6-luna`, or `MODEL_NAME`.
 - **Dashboard** (`dashboard/`, React + Vite + TS). To UnderCover's brand, light
   and dark: the queue with each claim's state, the claim in full with the
   decision and the agent's activity, and the instructions read only. The

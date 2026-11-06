@@ -175,6 +175,44 @@ def test_work_claim_leaves_an_already_decided_claim_alone(monkeypatch):
     assert len(detail["steps"]) == steps_before
 
 
+def queue_messages(ordered_claims):
+    """Script a planning reply, then a decision for each claim in order."""
+    messages = [AIMessage(content=" ".join(cid for cid, _, _ in ordered_claims))]
+    for claim_id, decision, payout in ordered_claims:
+        messages += decision_call(claim_id, decision, payout)
+    return messages
+
+
+def first_waiting(count):
+    queue = TestClient(app).get("/api/claims").json()
+    return [c["claim_id"] for c in queue if c["state"] == "waiting"][:count]
+
+
+def test_run_queue_stores_and_works_the_to_do_list(monkeypatch):
+    monkeypatch.setattr(main, "backend", lambda: TestClient(app))
+    ids = first_waiting(2)
+    ordered = [(ids[0], "approve", 300.0), (ids[1], "refer", 0.0)]
+    summary = main.run_queue(2, StubModel(messages=iter(queue_messages(ordered))))
+
+    current = TestClient(app).get("/api/runs/current").json()
+    assert [item["claim_id"] for item in current["items"]] == ids
+    assert all(item["status"] == "done" for item in current["items"])
+    assert current["items"][0]["note"] == f"{ids[0]}: approve, $300.00"
+    assert current["summary"] == summary
+    assert summary == "Worked 2 claims: 1 approve, 1 refer."
+
+
+def test_run_queue_caps_the_run(monkeypatch):
+    monkeypatch.setattr(main, "backend", lambda: TestClient(app))
+    ids = first_waiting(3)
+    ordered = [(claim_id, "approve", 100.0) for claim_id in ids]
+    main.run_queue(3, StubModel(messages=iter(queue_messages(ordered))))
+
+    queue = TestClient(app).get("/api/claims").json()
+    assert len([c for c in queue if c["state"] != "waiting"]) == 3
+    assert len([c for c in queue if c["state"] == "waiting"]) == 22
+
+
 def test_model_name(monkeypatch):
     monkeypatch.setenv("OPENROUTER_API_KEY", "test-key")
     monkeypatch.delenv("MODEL_NAME", raising=False)

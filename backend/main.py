@@ -34,6 +34,31 @@ class StepIn(BaseModel):
     detail: str
 
 
+class RunIn(BaseModel):
+    """How many waiting claims a run should work, or null for all of them."""
+
+    limit: int | None
+
+
+class PlanIn(BaseModel):
+    """The ordered claim ids that make up a run's to-do list."""
+
+    claim_ids: list[str]
+
+
+class ItemIn(BaseModel):
+    """The status and one-line note for one item on a run's to-do list."""
+
+    status: Literal["to_do", "in_progress", "done", "for_handler"]
+    note: str
+
+
+class FinishIn(BaseModel):
+    """The summary written when a run finishes."""
+
+    summary: str
+
+
 @asynccontextmanager
 async def lifespan(_: FastAPI):
     db.seed()
@@ -278,3 +303,86 @@ def pay_claim(claim_id: str, body: PayIn, conn: Conn) -> dict[str, Any]:
     )
     conn.commit()
     return claim_detail(conn, claim_id)
+
+
+def fetch_run(conn: sqlite3.Connection, run_id: int) -> sqlite3.Row:
+    """Return a run row, or raise 404."""
+    row = conn.execute("SELECT * FROM runs WHERE run_id = ?", (run_id,)).fetchone()
+    if row is None:
+        raise HTTPException(status_code=404, detail=f"run {run_id} not found")
+    return row
+
+
+def run_view(conn: sqlite3.Connection, row: sqlite3.Row) -> dict[str, Any]:
+    """Assemble a run with its to-do list in order."""
+    items = conn.execute(
+        "SELECT claim_id, status, note FROM run_items"
+        " WHERE run_id = ? ORDER BY ordinal",
+        (row["run_id"],),
+    ).fetchall()
+    return {
+        "run_id": row["run_id"],
+        "limit": row["limit_count"],
+        "finished": bool(row["finished"]),
+        "summary": row["summary"],
+        "items": [dict(item) for item in items],
+    }
+
+
+@app.post("/api/runs", operation_id="open_run")
+def open_run(body: RunIn, conn: Conn) -> dict[str, Any]:
+    """Open a run over the first `limit` waiting claims, or all when null."""
+    cursor = conn.execute("INSERT INTO runs (limit_count) VALUES (?)", (body.limit,))
+    conn.commit()
+    return {"run_id": cursor.lastrowid}
+
+
+@app.post("/api/runs/{run_id}/plan", operation_id="plan_run")
+def plan_run(run_id: int, body: PlanIn, conn: Conn) -> dict[str, Any]:
+    """Write the run's ordered to-do list, each item to do."""
+    fetch_run(conn, run_id)
+    conn.execute("DELETE FROM run_items WHERE run_id = ?", (run_id,))
+    conn.executemany(
+        "INSERT INTO run_items (run_id, ordinal, claim_id) VALUES (?, ?, ?)",
+        [
+            (run_id, ordinal, claim_id)
+            for ordinal, claim_id in enumerate(body.claim_ids)
+        ],
+    )
+    conn.commit()
+    return run_view(conn, fetch_run(conn, run_id))
+
+
+@app.post("/api/runs/{run_id}/items/{claim_id}", operation_id="update_run_item")
+def update_run_item(
+    run_id: int, claim_id: str, body: ItemIn, conn: Conn
+) -> dict[str, Any]:
+    """Update one item on the run's to-do list: its status and one-line note."""
+    fetch_run(conn, run_id)
+    cursor = conn.execute(
+        "UPDATE run_items SET status = ?, note = ? WHERE run_id = ? AND claim_id = ?",
+        (body.status, body.note, run_id, claim_id),
+    )
+    if cursor.rowcount == 0:
+        raise HTTPException(status_code=404, detail=f"item {claim_id} not on the run")
+    conn.commit()
+    return run_view(conn, fetch_run(conn, run_id))
+
+
+@app.post("/api/runs/{run_id}/finish", operation_id="finish_run")
+def finish_run(run_id: int, body: FinishIn, conn: Conn) -> dict[str, Any]:
+    """Store the run's summary and mark it finished."""
+    fetch_run(conn, run_id)
+    conn.execute(
+        "UPDATE runs SET summary = ?, finished = 1 WHERE run_id = ?",
+        (body.summary, run_id),
+    )
+    conn.commit()
+    return run_view(conn, fetch_run(conn, run_id))
+
+
+@app.get("/api/runs/current", operation_id="get_current_run")
+def get_current_run(conn: Conn) -> dict[str, Any] | None:
+    """Return the latest run with its to-do list, or null if there is none."""
+    row = conn.execute("SELECT * FROM runs ORDER BY run_id DESC LIMIT 1").fetchone()
+    return run_view(conn, row) if row is not None else None
