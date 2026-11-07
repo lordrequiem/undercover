@@ -90,7 +90,7 @@ test("the queue shows the run's to-do list and claims show their steps", async (
   ).toBeVisible();
   await expect(page.getByText("Done")).toBeVisible();
   await expect(page.getByText("To do")).toBeVisible();
-  await expect(page.getByText("In progress")).toBeVisible();
+  await expect(page.getByText("In progress").first()).toBeVisible();
   await expect(page.getByText("For handler").first()).toBeVisible();
 
   await page.goto("/#/claims/CLM-1002");

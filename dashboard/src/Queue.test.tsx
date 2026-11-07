@@ -25,8 +25,22 @@ it("lists claims with their state and money", async () => {
   expect(await screen.findByText("CLM-1001")).toBeDefined();
   expect(screen.getByText("Maya Patel")).toBeDefined();
   expect(screen.getByText("Trip Delay")).toBeDefined();
-  expect(screen.getByText("$420.00")).toBeDefined();
-  expect(screen.getByText("Waiting")).toBeDefined();
+  // The amount and state also appear in the overview, so there is more than one.
+  expect(screen.getAllByText("$420.00").length).toBeGreaterThan(0);
+  expect(screen.getAllByText("Waiting").length).toBeGreaterThan(0);
+});
+
+it("summarises the queue with counts by state and the total claimed", async () => {
+  stubFetch(null);
+  render(<Queue />);
+  expect(await screen.findByText("Overview")).toBeDefined();
+  expect(screen.getByText("Total claims")).toBeDefined();
+  expect(screen.getByText("Total claimed")).toBeDefined();
+  // One waiting claim of $420: the total claimed tile shows its money.
+  expect(screen.getAllByText("$420.00").length).toBeGreaterThan(0);
+  // Every state is labelled, even those with a count of zero.
+  expect(screen.getByText("Decided")).toBeDefined();
+  expect(screen.getByText("For handler")).toBeDefined();
 });
 
 it("shows the current run's to-do list with every status and the summary", async () => {
@@ -35,7 +49,8 @@ it("shows the current run's to-do list with every status and the summary", async
   expect(await screen.findByText("Current run")).toBeDefined();
   expect(screen.getByText("To do")).toBeDefined();
   expect(screen.getByText("Done")).toBeDefined();
-  expect(screen.getByText("For handler")).toBeDefined();
+  // "For handler" is both a run item badge and an overview stat label.
+  expect(screen.getAllByText("For handler").length).toBeGreaterThan(0);
   // "In progress" appears for both a run item and (not here) a claim state.
   expect(screen.getAllByText("In progress").length).toBeGreaterThan(0);
   expect(screen.getByText(currentRun.summary ?? "")).toBeDefined();

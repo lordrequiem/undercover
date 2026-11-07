@@ -1,13 +1,53 @@
 import { useEffect, useState } from "react";
 import {
+  type ClaimState,
   type CurrentRun,
   type QueueItem,
   fetchCurrentRun,
   fetchQueue,
   formatMoney,
+  stateLabel,
   titleCase,
 } from "./api";
 import { RunItemBadge, StatusBadge } from "./StatusBadge";
+
+const STATE_ORDER: ClaimState[] = [
+  "waiting",
+  "in_progress",
+  "waiting_for_signoff",
+  "decided",
+  "for_handler",
+];
+
+function Overview({ claims }: Readonly<{ claims: QueueItem[] }>) {
+  const counts = new Map<ClaimState, number>();
+  let totalClaimed = 0;
+  for (const claim of claims) {
+    counts.set(claim.state, (counts.get(claim.state) ?? 0) + 1);
+    totalClaimed += claim.amount_claimed;
+  }
+  return (
+    <section className="panel">
+      <h2>Overview</h2>
+      <div className="stat-grid">
+        <div className="stat">
+          <span className="stat-value">{claims.length}</span>
+          <span className="stat-label">Total claims</span>
+        </div>
+        {STATE_ORDER.map((state) => (
+          <div className="stat" key={state}>
+            <span className="stat-value">{counts.get(state) ?? 0}</span>
+            <span className="stat-label">{stateLabel(state)}</span>
+          </div>
+        ))}
+        <div className="stat">
+          <span className="stat-value mono">{formatMoney(totalClaimed)}</span>
+          <span className="stat-label">Total claimed</span>
+        </div>
+      </div>
+    </section>
+  );
+}
 
 function RunPanel({ run }: Readonly<{ run: CurrentRun }>) {
   return (
@@ -68,6 +108,7 @@ export function Queue() {
   return (
     <>
       {error && <p className="muted">{error}</p>}
+      <Overview claims={claims} />
       {run && <RunPanel run={run} />}
       <section className="panel">
         <h2>Claims queue</h2>
