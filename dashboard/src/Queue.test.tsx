@@ -48,3 +48,14 @@ it("shows no run panel when there is no run", async () => {
   await screen.findByText("Claims queue");
   expect(screen.queryByText("Current run")).toBeNull();
 });
+
+it("shows a message instead of staying stuck when the backend is unreachable", async () => {
+  vi.stubGlobal(
+    "fetch",
+    vi.fn(() => Promise.reject(new Error("network down"))),
+  );
+  render(<Queue />);
+  expect(
+    await screen.findByText("Could not reach the backend. Retrying."),
+  ).toBeDefined();
+});

@@ -30,18 +30,20 @@ section by section, recover from failures, and show it all on the screens.
   server-side claim instructions; it reads the claim, looks up the sections of
   the wording and the manual it needs, decides approve, decline or refer, works
   out the payout, and records the decision with the relevant policy section. A
-  claim is worked by `work_claim(claim_id)`, a fresh agent with a fresh thread
-  that reports back in one line; `run(claim_id, thread_id)` is the named-claim
-  entry point and calls it. `run_queue(limit)` works the whole queue: it opens a
-  run, makes one planning call to order the waiting claims (capped at `limit`)
-  into a to-do list, works each with a fresh helper, and finishes with a summary
-  counting the outcomes. It recovers from failures on its own: a failed claim is
-  caught, returned to the queue and tried once more, and a claim that fails
-  twice is left for a handler, so one bad claim never stops the run or strands a
-  claim in progress. Before finishing it re-checks that no capped claim is still
-  waiting. An `llm` injection point lets tests use a stub model. Default model
-  `deepseek/deepseek-v4.1-flash` on OpenRouter at low reasoning effort, or
-  `MODEL_NAME`.
+  claim is worked by `work_claim(claim_id)`, a fresh agent from a clean start
+  that reports back in one line; it is also the named-claim entry point.
+  `run_queue(limit)` works the whole queue: it opens a run, makes one planning
+  call to order the waiting claims (capped at `limit`) into a to-do list, works
+  each with a fresh helper, and finishes with a summary counting the outcomes.
+  It recovers from failures on its own: `work_with_retry` tries a claim up to
+  twice, a failed claim is returned to the queue between tries, and a claim that
+  fails twice is left for a handler. A single guard around each claim's work
+  turns any failure, including a backend outage, into a report rather than an
+  escape, so one bad claim never stops the run or strands a claim in progress.
+  Before finishing it re-reads the queue and works any claim the run planned
+  that is still waiting. An `llm` injection point lets tests use a stub model.
+  Default model `deepseek/deepseek-v4.1-flash` on OpenRouter at low reasoning
+  effort, or `MODEL_NAME`.
 - **Dashboard** (`dashboard/`, React + Vite + TS). To UnderCover's brand, light
   and dark: the queue with each claim's state and, alongside it, the current
   run's to-do list — each item to do, in progress, done or for a handler, with
@@ -63,5 +65,7 @@ the dashboard.
   in and tick off. For a live run, delete `backend/undercover.db` first so the
   backend reseeds, and keep the cap at five.
 - Run the agent on one named claim: `uv run python -c "from agent.main import
-  run; print(run('CLM-1001', 'session-1'))"`, then open the claim.
-- `npm run check` runs every check (Python, TypeScript, Playwright).
+  work_claim; print(work_claim('CLM-1001').line)"`, then open the claim.
+- `npm run check` runs every check (Python, TypeScript, Playwright). Each seed
+  reloads the instruction files, so editing them takes effect on the next
+  restart without deleting the database.

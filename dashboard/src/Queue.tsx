@@ -34,20 +34,27 @@ function RunPanel({ run }: Readonly<{ run: CurrentRun }>) {
 export function Queue() {
   const [claims, setClaims] = useState<QueueItem[] | null>(null);
   const [run, setRun] = useState<CurrentRun | null>(null);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     let active = true;
     let timer: ReturnType<typeof setTimeout>;
+    // Keep polling while the page is open, so a run started after the page
+    // loads shows up on its own, not only after a reload.
     const load = async () => {
-      const [nextClaims, nextRun] = await Promise.all([
-        fetchQueue(),
-        fetchCurrentRun(),
-      ]);
-      if (!active) return;
-      setClaims(nextClaims);
-      setRun(nextRun);
-      if (nextRun && !nextRun.finished)
-        timer = setTimeout(() => void load(), 1000);
+      try {
+        const [nextClaims, nextRun] = await Promise.all([
+          fetchQueue(),
+          fetchCurrentRun(),
+        ]);
+        if (!active) return;
+        setClaims(nextClaims);
+        setRun(nextRun);
+        setError(null);
+      } catch {
+        if (active) setError("Could not reach the backend. Retrying.");
+      }
+      if (active) timer = setTimeout(() => void load(), 1000);
     };
     void load();
     return () => {
@@ -56,10 +63,11 @@ export function Queue() {
     };
   }, []);
 
-  if (!claims) return <p className="muted">Loading the queue.</p>;
+  if (!claims) return <p className="muted">{error ?? "Loading the queue."}</p>;
 
   return (
     <>
+      {error && <p className="muted">{error}</p>}
       {run && <RunPanel run={run} />}
       <section className="panel">
         <h2>Claims queue</h2>

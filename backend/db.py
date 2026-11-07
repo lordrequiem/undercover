@@ -104,12 +104,15 @@ def seed() -> None:
             "INSERT OR IGNORE INTO settings (key, value) VALUES ('company', ?)",
             (json.dumps(_load("company.json")),),
         )
+        # Reload the instructions every seed so edits to these files take effect
+        # on restart, and clear the old single-key form if it lingers.
+        conn.execute("DELETE FROM settings WHERE key = 'instructions'")
         for key, path in (
             ("claim_instructions", CLAIM_INSTRUCTIONS),
             ("queue_instructions", QUEUE_INSTRUCTIONS),
         ):
             conn.execute(
-                "INSERT OR IGNORE INTO settings (key, value) VALUES (?, ?)",
+                "INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)",
                 (key, path.read_text(encoding="utf-8")),
             )
         conn.commit()

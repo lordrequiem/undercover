@@ -32,7 +32,7 @@ by default, overridable with `MODEL_NAME`. The harness is specified in full in
 
 ## Rules
 
-- A payout over $1,000 needs a handler's sign-off. The agent can approve such a claim, but the payment waits until a handler signs off. The system must block the payment until then, even if the agent tries to pay.
+- A payout over $1,000 needs a handler's sign-off. The agent can approve such a claim, but the payment waits until a handler signs off. The system must block the payment until then, even if the agent tries to pay. A claim is paid at most once, and only for the decided payout.
 - Decisions follow the policy wording and the claims manual.
 - Our handlers' own decisions on these claims are in `data/evals/`. We use them to check the agent's work. The agent must never see them.
 - Amounts are in US dollars.

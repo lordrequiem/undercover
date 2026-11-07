@@ -93,3 +93,32 @@ def test_for_handler_moves_a_claim_to_for_handler():
     body = client.post("/api/claims/CLM-1012/for_handler")
     assert body.status_code == 200
     assert body.json()["state"] == "for_handler"
+
+
+def test_for_handler_is_refused_once_a_decision_exists():
+    decide("CLM-1013", "approve", 500.0)
+    assert client.post("/api/claims/CLM-1013/for_handler").status_code == 409
+    assert client.get("/api/claims/CLM-1013").json()["state"] == "decided"
+
+
+def test_a_claim_is_not_paid_twice():
+    decide("CLM-1014", "approve", 400.0)
+    assert (
+        client.post("/api/claims/CLM-1014/pay", json={"amount": 400.0}).status_code
+        == 200
+    )
+    second = client.post("/api/claims/CLM-1014/pay", json={"amount": 400.0})
+    assert second.status_code == 409
+
+
+def test_payment_must_equal_the_decided_payout():
+    decide("CLM-1015", "approve", 400.0)
+    assert (
+        client.post("/api/claims/CLM-1015/pay", json={"amount": 350.0}).status_code
+        == 409
+    )
+    assert client.get("/api/claims/CLM-1015").json()["decision"]["paid"] is None
+
+
+def test_a_negative_payout_is_rejected():
+    assert decide("CLM-1016", "approve", -100.0).status_code == 422

@@ -7,7 +7,7 @@ from contextlib import asynccontextmanager
 from typing import Annotated, Any, Literal
 
 from fastapi import Depends, FastAPI, HTTPException
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from backend import db, handbook
 
@@ -16,7 +16,7 @@ class DecisionIn(BaseModel):
     """The agent's decision on a claim."""
 
     decision: Literal["approve", "decline", "refer"]
-    payout: float
+    payout: float = Field(ge=0)
     reason: str
     policy_section: str
 
@@ -112,10 +112,15 @@ def steps_of(conn: sqlite3.Connection, claim_id: str) -> list[dict[str, str]]:
     return [{"label": row["label"], "detail": row["detail"]} for row in rows]
 
 
+def setting(conn: sqlite3.Connection, key: str) -> str:
+    """Return a stored setting's text value."""
+    row = conn.execute("SELECT value FROM settings WHERE key = ?", (key,)).fetchone()
+    return row["value"]
+
+
 def company(conn: sqlite3.Connection) -> dict[str, Any]:
     """Return the company settings."""
-    row = conn.execute("SELECT value FROM settings WHERE key = 'company'").fetchone()
-    return json.loads(row["value"])
+    return json.loads(setting(conn, "company"))
 
 
 def fetch_claim(conn: sqlite3.Connection, claim_id: str) -> sqlite3.Row:
@@ -150,10 +155,12 @@ def health() -> dict[str, str]:
     return {"status": "ok"}
 
 
-def setting(conn: sqlite3.Connection, key: str) -> str:
-    """Return a stored setting's text value."""
-    row = conn.execute("SELECT value FROM settings WHERE key = ?", (key,)).fetchone()
-    return row["value"]
+def set_state(conn: sqlite3.Connection, claim_id: str, state: str) -> dict[str, Any]:
+    """Move a claim to a new state and return its refreshed detail."""
+    fetch_claim(conn, claim_id)
+    conn.execute("UPDATE claims SET state = ? WHERE claim_id = ?", (state, claim_id))
+    conn.commit()
+    return claim_detail(conn, claim_id)
 
 
 @app.get("/api/instructions", operation_id="get_instructions")
@@ -212,12 +219,7 @@ def get_claim(claim_id: str, conn: Conn) -> dict[str, Any]:
 @app.post("/api/claims/{claim_id}/start", operation_id="start_claim")
 def start_claim(claim_id: str, conn: Conn) -> dict[str, Any]:
     """Mark that the agent has started working the claim."""
-    fetch_claim(conn, claim_id)
-    conn.execute(
-        "UPDATE claims SET state = 'in_progress' WHERE claim_id = ?", (claim_id,)
-    )
-    conn.commit()
-    return claim_detail(conn, claim_id)
+    return set_state(conn, claim_id, "in_progress")
 
 
 @app.post("/api/claims/{claim_id}/steps", operation_id="add_step")
@@ -257,20 +259,16 @@ def requeue_claim(claim_id: str, conn: Conn) -> dict[str, Any]:
     row = fetch_claim(conn, claim_id)
     if row["decision"] is not None:
         raise HTTPException(status_code=409, detail="claim already has a decision")
-    conn.execute("UPDATE claims SET state = 'waiting' WHERE claim_id = ?", (claim_id,))
-    conn.commit()
-    return claim_detail(conn, claim_id)
+    return set_state(conn, claim_id, "waiting")
 
 
 @app.post("/api/claims/{claim_id}/for_handler", operation_id="hand_to_handler")
 def hand_to_handler(claim_id: str, conn: Conn) -> dict[str, Any]:
-    """Leave a claim for a handler to work by hand."""
-    fetch_claim(conn, claim_id)
-    conn.execute(
-        "UPDATE claims SET state = 'for_handler' WHERE claim_id = ?", (claim_id,)
-    )
-    conn.commit()
-    return claim_detail(conn, claim_id)
+    """Leave a claim for a handler to work by hand, unless it is already decided."""
+    row = fetch_claim(conn, claim_id)
+    if row["decision"] is not None:
+        raise HTTPException(status_code=409, detail="claim already has a decision")
+    return set_state(conn, claim_id, "for_handler")
 
 
 @app.post("/api/claims/{claim_id}/signoff", operation_id="sign_off_claim")
@@ -293,6 +291,12 @@ def pay_claim(claim_id: str, body: PayIn, conn: Conn) -> dict[str, Any]:
     row = fetch_claim(conn, claim_id)
     if row["decision"] != "approve":
         raise HTTPException(status_code=409, detail="claim is not approved")
+    if row["paid"] is not None:
+        raise HTTPException(status_code=409, detail="claim is already paid")
+    if body.amount != row["payout"]:
+        raise HTTPException(
+            status_code=409, detail="payment must equal the decided payout"
+        )
     limit = company(conn)["payout_approval_limit"]
     if body.amount > limit and not row["signed_off"]:
         raise HTTPException(
